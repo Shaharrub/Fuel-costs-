@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>מחשבון דלק</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="מחשבון דלק">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#0f766e">
+<meta name="color-scheme" content="light">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#f4f6f5;color:#16201e;font-family:-apple-system,"Segoe UI",Arial,sans-serif}
+body{min-height:100vh;padding:max(12px,env(safe-area-inset-top)) 14px max(24px,env(safe-area-inset-bottom));max-width:520px;margin:0 auto}
+h1{font-size:20px;margin:6px 0 10px;text-align:center}
+.month{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.month button{background:#fff;border:1px solid #d5dcda;border-radius:10px;width:44px;height:40px;font-size:20px;color:#0f766e}
+.month b{font-size:17px}
+.card{background:#fff;border-radius:16px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.07);margin-bottom:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.k{font-size:12px;color:#5b6b67}
+.v{font-size:19px;font-weight:700;margin-top:2px}
+.diff{margin-top:12px;padding-top:12px;border-top:1px solid #e6ebea;text-align:center}
+.diff .v{font-size:32px}
+.diff .note{font-size:12px;color:#5b6b67;margin-top:4px;line-height:1.4}
+.pos{color:#b45309}.neg{color:#0f766e}
+.center{display:flex;flex-direction:column;align-items:center;margin:18px 0 14px}
+#big{width:min(66vw,260px);height:min(66vw,260px);border-radius:50%;border:none;background:#0f766e;color:#fff;font-size:26px;font-weight:700;box-shadow:0 8px 22px rgba(15,118,110,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;line-height:1.2}
+#big:active{transform:scale(.97)}
+#big.on{background:#c2410c;box-shadow:0 8px 22px rgba(194,65,12,.35)}
+#big small{font-size:15px;font-weight:500;opacity:.95}
+#live{font-size:38px;font-weight:800}
+#status{margin-top:12px;font-size:13px;color:#5b6b67;text-align:center;min-height:18px}
+#status.warn{color:#b45309}
+.row{display:flex;gap:10px;margin-bottom:12px}
+.btn{flex:1;background:#fff;border:1px solid #cfd8d6;border-radius:12px;padding:13px 8px;font-size:15px;font-weight:600;color:#16201e}
+.btn.pri{background:#0f766e;color:#fff;border-color:#0f766e}
+.btn.danger{color:#b91c1c}
+h2{font-size:15px;margin:4px 0 8px}
+.item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eef1f0;font-size:14px}
+.item:last-child{border-bottom:none}
+.item .l{line-height:1.45}
+.item .s{font-size:12px;color:#5b6b67}
+.item button{background:none;border:none;color:#0f766e;font-size:13px;padding:8px}
+.empty{color:#7b8a86;font-size:14px;text-align:center;padding:10px}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.sheet-bg.show{display:flex}
+.sheet{background:#fff;width:100%;max-width:520px;border-radius:20px 20px 0 0;padding:18px 16px max(20px,env(safe-area-inset-bottom));max-height:92vh;overflow:auto}
+.sheet h3{margin:0 0 12px;font-size:18px}
+label{display:block;font-size:13px;color:#42524e;margin:10px 0 4px}
+input[type=number],input[type=date]{width:100%;font-size:18px;padding:11px;border:1px solid #cfd8d6;border-radius:10px;background:#fff;color:#16201e;direction:ltr;text-align:right}
+.hint{font-size:12px;color:#5b6b67;margin-top:6px;line-height:1.4}
+.chk{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px}
+.chk input{width:20px;height:20px}
+.sync{text-align:center;font-size:12px;color:#5b6b67;margin:-4px 0 8px}
+.foot{font-size:11px;color:#8a9893;text-align:center;margin-top:14px;line-height:1.5}
+</style>
+</head>
+<body>
+<h1>⛽ מחשבון דלק</h1>
+<div id="sync" class="sync"></div>
+
+<div class="month">
+  <button id="next" aria-label="חודש הבא">›</button>
+  <b id="monthLabel"></b>
+  <button id="prev" aria-label="חודש קודם">‹</button>
+</div>
+
+<div class="card">
+  <div class="grid">
+    <div><div class="k">ק"מ שנסעתי</div><div class="v" id="sKm">0</div></div>
+    <div><div class="k">דלק שנצרך (ליטר)</div><div class="v" id="sLit">0</div></div>
+    <div><div class="k">עלות הנסיעות שלי</div><div class="v" id="sCalc">0 ₪</div></div>
+    <div><div class="k">שילמתי בפועל</div><div class="v" id="sPaid">0 ₪</div></div>
+  </div>
+  <div class="diff">
+    <div class="k">הפרש (שילמתי פחות עלות הנסיעות שלי)</div>
+    <div class="v" id="sDiff">0 ₪</div>
+    <div class="note" id="sNote"></div>
+  </div>
+</div>
+
+<div class="center">
+  <button id="big"><span id="bigTxt">התחל נסיעה</span></button>
+  <div id="status"></div>
+</div>
+
+<div class="row">
+  <button class="btn pri" id="addFuel">+ תדלוק</button>
+  <button class="btn" id="addTrip">+ נסיעה ידנית</button>
+  <button class="btn" id="openSet">⚙ הגדרות</button>
+</div>
+
+<div class="card">
+  <h2>תדלוקים החודש</h2>
+  <div id="fuelList"></div>
+</div>
+<div class="card">
+  <h2>נסיעות החודש</h2>
+  <div id="tripList"></div>
+</div>
+
+<div class="foot" id="foot"></div>
+
+<!-- Welcome -->
+<div class="sheet-bg" id="welBg"><div class="sheet">
+  <h3>ברוך הבא</h3>
+  <label>השם שלי</label>
+  <input type="text" id="wName" maxlength="20" style="width:100%;font-size:18px;padding:11px;border:1px solid #cfd8d6;border-radius:10px">
+  <button class="btn pri" id="wCreate" style="width:100%;margin-top:16px">צור יומן חדש</button>
+  <div class="hint" style="text-align:center;margin:12px 0 0">או הצטרף ליומן קיים עם קוד:</div>
+  <input type="text" id="wCode" dir="ltr" placeholder="קוד יומן" style="width:100%;font-size:16px;padding:11px;border:1px solid #cfd8d6;border-radius:10px;margin-top:6px;text-align:left">
+  <button class="btn" id="wJoin" style="width:100%;margin-top:8px">הצטרף</button>
+  <div class="hint" id="wMsg" style="color:#b91c1c"></div>
+</div></div>
+
+<!-- Settings -->
+<div class="sheet-bg" id="setBg"><div class="sheet">
+  <h3>הגדרות</h3>
+  <label>צריכת הרכב (ליטר ל-100 ק"מ)</label>
+  <input type="number" id="setCons" step="0.1" inputmode="decimal">
+  <label>מחיר ליטר 95 שירות עצמי (₪)</label>
+  <input type="number" id="setPrice" step="0.01" inputmode="decimal">
+  <div class="hint">מחיר זה נשמר על כל נסיעה בזמן שנשמרה, ולכן שינוי עתידי לא ישנה חודשים קודמים.</div>
+  <div class="row" style="margin-top:16px">
+    <button class="btn pri" id="saveSet">שמור</button>
+    <button class="btn" id="closeSet">סגור</button>
+  </div>
+  <div id="jBox">
+    <h2 style="margin-top:14px">יומן משותף</h2>
+    <label>השם שלי (יופיע ליד מה שאני מוסיף)</label>
+    <input type="text" id="setName" maxlength="20" style="width:100%;font-size:18px;padding:11px;border:1px solid #cfd8d6;border-radius:10px">
+    <div class="hint" id="jCode"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="shareJ">שלח קישור הצטרפות</button>
+      <button class="btn danger" id="leaveJ">עזוב יומן</button>
+    </div>
+  </div>
+  <h2 style="margin-top:14px">גיבוי</h2>
+  <div class="row">
+    <button class="btn" id="exportBtn">הורד גיבוי</button>
+    <button class="btn" id="importBtn">שחזר מגיבוי</button>
+  </div>
+  <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+  <div class="hint" id="backupMsg"></div>
+</div></div>
+
+<!-- Fuel -->
+<div class="sheet-bg" id="fuelBg"><div class="sheet">
+  <h3 id="fuelTitle">תדלוק</h3>
+  <label>תאריך</label>
+  <input type="date" id="fDate">
+  <label>כמות ליטרים</label>
+  <input type="number" id="fLit" step="0.01" inputmode="decimal">
+  <label>סכום ששולם (₪)</label>
+  <input type="number" id="fPaid" step="0.01" inputmode="decimal">
+  <div class="hint" id="fPpl"></div>
+  <label class="chk"><input type="checkbox" id="fUpd"> עדכן את מחיר הליטר בהגדרות לפי התדלוק הזה</label>
+  <div class="row" style="margin-top:16px">
+    <button class="btn pri" id="saveFuel">שמור</button>
+    <button class="btn" id="closeFuel">ביטול</button>
+  </div>
+  <button class="btn danger" id="delFuel" style="width:100%;margin-top:4px;display:none">מחק תדלוק</button>
+</div></div>
+
+<!-- Trip -->
+<div class="sheet-bg" id="tripBg"><div class="sheet">
+  <h3 id="tripTitle">נסיעה</h3>
+  <label>תאריך</label>
+  <input type="date" id="tDate">
+  <label>קילומטרים</label>
+  <input type="number" id="tKm" step="0.1" inputmode="decimal">
+  <div class="hint" id="tHint"></div>
+  <div class="row" style="margin-top:16px">
+    <button class="btn pri" id="saveTrip">שמור</button>
+    <button class="btn" id="closeTrip">ביטול</button>
+  </div>
+  <button class="btn danger" id="delTrip" style="width:100%;margin-top:4px;display:none">מחק נסיעה</button>
+</div></div>
+
+<script type="module">
+"use strict";
+(async function(){
+var LS = {
+  get:function(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set:function(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},
+  del:function(k){try{localStorage.removeItem(k)}catch(e){}}
+};
+var CFG=null;
+try{var cm=await import('./firebase-config.js');CFG=cm.default||null}catch(e){CFG=null}
+var cloud=null;                          // {db,fn} when connected
+var journal=LS.get('fuel.journal',null); // {code,name}
+var cloudErr='';
+var pendingSync=false;
+var DEFAULTS={cons:8.6,price:7.5};
+var settings = LS.get('fuel.settings',DEFAULTS);
+var trips = CFG?[]:LS.get('fuel.trips',[]);   // {id,date,km,cons,price,src,by}
+var fills = CFG?[]:LS.get('fuel.fills',[]);   // {id,date,liters,paid,by}
+var cur = new Date(); var viewY=cur.getFullYear(), viewM=cur.getMonth();
+var editingTrip=null, editingFuel=null;
+var pendingTripKm=null; // km from a finished GPS trip awaiting save
+
+function $(id){return document.getElementById(id)}
+function save(){LS.set('fuel.settings',settings);if(!CFG){LS.set('fuel.trips',trips);LS.set('fuel.fills',fills)}}
+function clean(o){return JSON.parse(JSON.stringify(o))}
+function myName(){return (journal&&journal.name)||''}
+function upsert(arr,o){var i=arr.findIndex(function(x){return x.id===o.id});if(i>=0)arr[i]=o;else arr.push(o)}
+function cref(name,id){var f=cloud.fn;return id?f.doc(cloud.db,'logs',journal.code,name,id):f.collection(cloud.db,'logs',journal.code,name)}
+function cloudWrite(p){p.catch(function(e){cloudErr='שגיאת סנכרון: '+(e&&e.code||e);renderSync()})}
+var store={
+  putTrip:function(t){if(cloud&&journal){cloudWrite(cloud.fn.setDoc(cref('trips',t.id),clean(t)))}else{upsert(trips,t);save();render()}},
+  delTrip:function(id){if(cloud&&journal){cloudWrite(cloud.fn.deleteDoc(cref('trips',id)))}else{trips=trips.filter(function(x){return x.id!==id});save();render()}},
+  putFill:function(f){if(cloud&&journal){cloudWrite(cloud.fn.setDoc(cref('fills',f.id),clean(f)))}else{upsert(fills,f);save();render()}},
+  delFill:function(id){if(cloud&&journal){cloudWrite(cloud.fn.deleteDoc(cref('fills',id)))}else{fills=fills.filter(function(x){return x.id!==id});save();render()}},
+  putSettings:function(st){settings=st;save();if(cloud&&journal){cloudWrite(cloud.fn.setDoc(cref('meta','settings'),clean(st)))}render()}
+};
+function renderSync(){
+  var el=$('sync');
+  if(!CFG){el.textContent='מצב מקומי (ללא סנכרון)';return}
+  if(cloudErr){el.textContent=cloudErr;el.style.color='#b91c1c';return}
+  el.style.color='';
+  el.textContent=journal?(pendingSync?'☁ ממתין לסנכרון…':'☁ מסונכרן'):'';
+}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function todayISO(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function fmt(n,dec){return Number(n).toLocaleString('he-IL',{minimumFractionDigits:dec,maximumFractionDigits:dec})}
+function esc(x){return String(x).replace(/[&<>"']/g,function(c){return '&#'+c.charCodeAt(0)+';'})}
+function ils(n){return fmt(n,2)+' ₪'}
+function inView(iso){var p=iso.split('-');return +p[0]===viewY && (+p[1]-1)===viewM}
+function dShort(iso){var p=iso.split('-');return p[2]+'/'+p[1]}
+function tripLit(t){return t.km*t.cons/100}
+function tripCost(t){return tripLit(t)*t.price}
+
+/* ---------- render ---------- */
+function render(){
+  $('monthLabel').textContent=new Date(viewY,viewM,1).toLocaleDateString('he-IL',{month:'long',year:'numeric'});
+  var mt=trips.filter(function(t){return inView(t.date)}).sort(function(a,b){return a.date<b.date?1:-1});
+  var mf=fills.filter(function(f){return inView(f.date)}).sort(function(a,b){return a.date<b.date?1:-1});
+  var km=0,lit=0,calc=0,paid=0;
+  mt.forEach(function(t){km+=t.km;lit+=tripLit(t);calc+=tripCost(t)});
+  mf.forEach(function(f){paid+=f.paid});
+  $('sKm').textContent=fmt(km,1);
+  $('sLit').textContent=fmt(lit,1);
+  $('sCalc').textContent=ils(calc);
+  $('sPaid').textContent=ils(paid);
+  var diff=paid-calc, el=$('sDiff');
+  el.textContent=ils(diff);
+  el.className='v '+(diff>0?'pos':'neg');
+  $('sNote').textContent = (paid===0&&calc===0)?'' :
+    diff>0 ? 'שילמת על דלק שלא נוצל בנסיעות שלך' :
+    diff<0 ? 'הנסיעות שלך עלו יותר ממה ששילמת (ייתכן שתדלוק עוד לא הוזן)' : 'התאמה מלאה';
+  $('fuelList').innerHTML = mf.length? mf.map(function(f){
+    return '<div class="item"><div class="l"><b>'+ils(f.paid)+'</b><div class="s">'+dShort(f.date)+' · '+fmt(f.liters,2)+' ליטר · '+fmt(f.paid/f.liters,3)+' ₪/ל׳'+(f.by?' · '+esc(f.by):'')+'</div></div><button data-f="'+f.id+'">עריכה</button></div>';
+  }).join('') : '<div class="empty">אין תדלוקים</div>';
+  $('tripList').innerHTML = mt.length? mt.map(function(t){
+    return '<div class="item"><div class="l"><b>'+fmt(t.km,1)+' ק"מ</b> · '+ils(tripCost(t))+'<div class="s">'+dShort(t.date)+' · '+fmt(tripLit(t),2)+' ליטר'+(t.src==='manual'?' · ידני':' · GPS')+(t.by?' · '+esc(t.by):'')+'</div></div><button data-t="'+t.id+'">עריכה</button></div>';
+  }).join('') : '<div class="empty">אין נסיעות</div>';
+}
+$('prev').onclick=function(){viewM--;if(viewM<0){viewM=11;viewY--}render()};
+$('next').onclick=function(){viewM++;if(viewM>11){viewM=0;viewY++}render()};
+
+/* ---------- sheets ---------- */
+function show(id){$(id).classList.add('show')}
+function hide(id){$(id).classList.remove('show')}
+
+// settings
+$('openSet').onclick=function(){
+  $('setCons').value=settings.cons;$('setPrice').value=settings.price;$('backupMsg').textContent='';
+  $('jBox').style.display=(CFG&&journal)?'block':'none';
+  if(CFG&&journal){$('setName').value=journal.name||'';$('jCode').textContent='קוד היומן: '+journal.code+'. כל מי שמצטרף איתו רואה ומעדכן את אותם נתונים.'}
+  show('setBg')};
+$('closeSet').onclick=function(){hide('setBg')};
+$('saveSet').onclick=function(){
+  var c=parseFloat($('setCons').value),p=parseFloat($('setPrice').value);
+  if(!(c>0)||!(p>0)){$('backupMsg').textContent='יש להזין ערכים תקינים';return}
+  if(journal){journal.name=$('setName').value.trim().slice(0,20);LS.set('fuel.journal',journal)}
+  store.putSettings({cons:c,price:p});hide('setBg');
+};
+$('exportBtn').onclick=function(){
+  try{
+    var data=JSON.stringify({settings:settings,trips:trips,fills:fills,v:1});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+    a.download='fuel-backup-'+todayISO()+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+    $('backupMsg').textContent='הגיבוי נוצר';
+  }catch(e){$('backupMsg').textContent='לא ניתן ליצור גיבוי במכשיר הזה'}
+};
+$('importBtn').onclick=function(){$('importFile').click()};
+$('importFile').onchange=function(e){
+  var f=e.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      var d=JSON.parse(r.result);
+      if(!d||!Array.isArray(d.trips)||!Array.isArray(d.fills))throw 0;
+      if(CFG&&journal){d.trips.forEach(function(t){store.putTrip(t)});d.fills.forEach(function(f){store.putFill(f)})}
+      else{trips=d.trips;fills=d.fills;save();render()}
+      if(d.settings)store.putSettings(d.settings);
+      $('backupMsg').textContent='הנתונים שוחזרו';
+    }catch(err){$('backupMsg').textContent='הקובץ לא תקין'}
+  };
+  r.readAsText(f);e.target.value='';
+};
+
+// fuel
+function updPpl(){
+  var l=parseFloat($('fLit').value),p=parseFloat($('fPaid').value);
+  $('fPpl').textContent=(l>0&&p>0)?('מחיר בפועל: '+fmt(p/l,3)+' ₪ לליטר'):'';
+}
+$('fLit').oninput=updPpl;$('fPaid').oninput=updPpl;
+$('addFuel').onclick=function(){
+  editingFuel=null;$('fuelTitle').textContent='תדלוק חדש';
+  $('fDate').value=todayISO();$('fLit').value='';$('fPaid').value='';$('fUpd').checked=false;
+  $('delFuel').style.display='none';updPpl();show('fuelBg');
+};
+$('closeFuel').onclick=function(){hide('fuelBg')};
+$('saveFuel').onclick=function(){
+  var l=parseFloat($('fLit').value),p=parseFloat($('fPaid').value),d=$('fDate').value;
+  if(!(l>0)||!(p>0)||!d){$('fPpl').textContent='יש למלא תאריך, ליטרים וסכום';return}
+  if(editingFuel){var f=fills.filter(function(x){return x.id===editingFuel})[0];store.putFill({id:f.id,date:d,liters:l,paid:p,by:f.by||myName()})}
+  else store.putFill({id:uid(),date:d,liters:l,paid:p,by:myName()});
+  if($('fUpd').checked)store.putSettings({cons:settings.cons,price:Math.round(p/l*100)/100});
+  hide('fuelBg');
+  var pp=d.split('-');viewY=+pp[0];viewM=+pp[1]-1;render();
+};
+$('delFuel').onclick=function(){
+  if(!editingFuel)return;
+  if($('delFuel').dataset.sure!=='1'){$('delFuel').dataset.sure='1';$('delFuel').textContent='לחץ שוב לאישור מחיקה';return}
+  store.delFill(editingFuel);hide('fuelBg');
+};
+$('fuelList').onclick=function(e){
+  var id=e.target.getAttribute('data-f');if(!id)return;
+  var f=fills.filter(function(x){return x.id===id})[0];if(!f)return;
+  editingFuel=id;$('fuelTitle').textContent='עריכת תדלוק';
+  $('fDate').value=f.date;$('fLit').value=f.liters;$('fPaid').value=f.paid;$('fUpd').checked=false;
+  $('delFuel').style.display='block';$('delFuel').dataset.sure='0';$('delFuel').textContent='מחק תדלוק';
+  updPpl();show('fuelBg');
+};
+
+// trip
+function updTripHint(){
+  var km=parseFloat($('tKm').value);
+  var c=editingTrip?(trips.filter(function(x){return x.id===editingTrip})[0]||settings):settings;
+  $('tHint').textContent=km>0?('צריכה: '+fmt(km*c.cons/100,2)+' ליטר · עלות: '+ils(km*c.cons/100*c.price)):'';
+}
+$('tKm').oninput=updTripHint;
+function openTrip(km,title,id){
+  editingTrip=id||null;pendingTripKm=null;
+  $('tripTitle').textContent=title;$('tDate').value=id?trips.filter(function(x){return x.id===id})[0].date:todayISO();
+  $('tKm').value=km!=null?km:'';
+  $('delTrip').style.display=id?'block':'none';$('delTrip').dataset.sure='0';$('delTrip').textContent='מחק נסיעה';
+  updTripHint();show('tripBg');
+}
+$('addTrip').onclick=function(){pendingFromGps=false;openTrip(null,'נסיעה ידנית');$('closeTrip').textContent='ביטול'};
+$('closeTrip').onclick=function(){pendingFromGps=false;hide('tripBg')};
+$('saveTrip').onclick=function(){
+  var km=parseFloat($('tKm').value),d=$('tDate').value;
+  if(!(km>0)||!d){$('tHint').textContent='יש להזין תאריך וק"מ';return}
+  if(editingTrip){var t=clean(trips.filter(function(x){return x.id===editingTrip})[0]);t.date=d;t.km=km;if(Math.abs(km-t.gpsKm)>0.05)t.src='manual';store.putTrip(t)}
+  else{
+    var nt={id:uid(),date:d,km:km,cons:settings.cons,price:settings.price,src:pendingFromGps?'gps':'manual',by:myName()};
+    if(pendingFromGps){nt.gpsKm=pendingGpsKm;if(Math.abs(km-pendingGpsKm)>0.05)nt.src='manual'}
+    store.putTrip(nt);
+  }
+  pendingFromGps=false;
+  hide('tripBg');
+  var pp=d.split('-');viewY=+pp[0];viewM=+pp[1]-1;render();
+};
+$('delTrip').onclick=function(){
+  if(!editingTrip)return;
+  if($('delTrip').dataset.sure!=='1'){$('delTrip').dataset.sure='1';$('delTrip').textContent='לחץ שוב לאישור מחיקה';return}
+  store.delTrip(editingTrip);hide('tripBg');
+};
+$('tripList').onclick=function(e){
+  var id=e.target.getAttribute('data-t');if(!id)return;
+  var t=trips.filter(function(x){return x.id===id})[0];if(!t)return;
+  pendingFromGps=false;openTrip(t.km,'עריכת נסיעה',id);$('closeTrip').textContent='ביטול';
+};
+
+/* ---------- GPS tracking ---------- */
+var pendingFromGps=false,pendingGpsKm=0;
+var tracking=false,watchId=null,lastPt=null,distM=0,startTs=0,wakeLock=null,lastFixTs=0,hiddenAt=0;
+var MAX_ACC=30, MIN_STEP=8, MAX_SPEED=70; // m accuracy, m min step, m/s sanity (~250 km/h)
+
+function hav(a,b,c,d){
+  var R=6371000,r=Math.PI/180,dLat=(c-a)*r,dLon=(d-b)*r;
+  var x=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+function setStatus(t,warn){var s=$('status');s.textContent=t;s.className=warn?'warn':''}
+function drawBig(){
+  var b=$('big');
+  if(tracking){
+    b.className='on';
+    b.innerHTML='<small>בנסיעה</small><span id="live">'+fmt(distM/1000,2)+'</span><small>ק"מ · לחץ לסיום</small>';
+  }else{
+    b.className='';
+    b.innerHTML='<span>התחל נסיעה</span>';
+  }
+}
+function persistActive(){LS.set('fuel.active',{startTs:startTs,distM:distM,lastPt:lastPt,savedAt:Date.now()})}
+
+function onPos(p){
+  var c=p.coords;lastFixTs=Date.now();
+  if(c.accuracy>MAX_ACC){setStatus('אות GPS חלש (דיוק '+Math.round(c.accuracy)+' מ׳)',true);return}
+  setStatus('GPS פעיל · דיוק '+Math.round(c.accuracy)+' מ׳');
+  var pt={lat:c.latitude,lon:c.longitude,t:p.timestamp};
+  if(!lastPt){lastPt=pt;persistActive();return}
+  var d=hav(lastPt.lat,lastPt.lon,pt.lat,pt.lon);
+  var dt=Math.max(1,(pt.t-lastPt.t)/1000);
+  if(d<Math.max(MIN_STEP,c.accuracy*0.5))return;   // jitter while stopped
+  if(d/dt>MAX_SPEED)return;                         // GPS jump
+  distM+=d;lastPt=pt;persistActive();
+  var l=$('live');if(l)l.textContent=fmt(distM/1000,2);
+}
+function onErr(e){
+  if(e.code===1){setStatus('אין הרשאת מיקום. אפשר לאפשר אותה בהגדרות האייפון, או להזין ק"מ ידנית.',true);stopTracking(true)}
+  else setStatus('מחפש אות GPS…',true);
+}
+async function lockScreen(){
+  try{if('wakeLock' in navigator){wakeLock=await navigator.wakeLock.request('screen')}}catch(e){wakeLock=null}
+}
+function unlockScreen(){try{if(wakeLock){wakeLock.release();wakeLock=null}}catch(e){}}
+
+function startTracking(resume){
+  if(!('geolocation' in navigator)){setStatus('המכשיר לא תומך ב-GPS בדפדפן. אפשר להזין ק"מ ידנית.',true);return}
+  tracking=true;
+  if(!resume){distM=0;lastPt=null;startTs=Date.now();}
+  persistActive();drawBig();setStatus('מחפש אות GPS…');
+  watchId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:20000});
+  lockScreen();
+}
+function stopTracking(silent){
+  if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null}
+  unlockScreen();
+  var km=distM/1000;
+  tracking=false;LS.del('fuel.active');drawBig();setStatus('');
+  if(silent&&km<0.05)return;
+  pendingFromGps=true;pendingGpsKm=Math.round(km*100)/100;
+  openTrip(pendingGpsKm,'סיום נסיעה');
+  pendingFromGps=true;$('closeTrip').textContent='ביטול (המסלול יימחק)';
+}
+$('big').onclick=function(){tracking?stopTracking(false):startTracking(false)};
+
+document.addEventListener('visibilitychange',function(){
+  if(!tracking)return;
+  if(document.hidden){hiddenAt=Date.now();persistActive()}
+  else{
+    lockScreen();
+    if(hiddenAt&&Date.now()-hiddenAt>5000)setStatus('האפליקציה הייתה ברקע, ייתכן שחלק מהדרך לא נמדד. אפשר לתקן את הק"מ בסיום.',true);
+    hiddenAt=0;
+  }
+});
+
+// resume an unfinished trip (e.g. app was closed by the system)
+(function(){
+  var a=LS.get('fuel.active',null);
+  if(a&&a.distM!=null&&Date.now()-a.savedAt<6*3600*1000){
+    distM=a.distM;startTs=a.startTs;lastPt=null;
+    startTracking(true);
+    setStatus('נסיעה שלא הסתיימה שוחזרה (ייתכן שחלק מהדרך לא נמדד).',true);
+  }else LS.del('fuel.active');
+})();
+
+/* ---------- cloud / journal ---------- */
+function genCode(){
+  var al='abcdefghjkmnpqrstuvwxyz23456789',a=new Uint8Array(20),o='';
+  crypto.getRandomValues(a);for(var i=0;i<a.length;i++)o+=al[a[i]%al.length];return o;
+}
+function validCode(c){return /^[a-z0-9]{16,40}$/.test(c)}
+var unsubs=[];
+function attach(){
+  unsubs.forEach(function(u){u()});unsubs=[];
+  var f=cloud.fn;
+  unsubs.push(f.onSnapshot(cref('trips'),function(sn){
+    trips=sn.docs.map(function(d){var o=d.data();o.id=d.id;return o});pendingSync=sn.metadata.hasPendingWrites;cloudErr='';renderSync();render();
+  },function(e){cloudErr='אין גישה ליומן ('+(e.code||'')+')';renderSync()}));
+  unsubs.push(f.onSnapshot(cref('fills'),function(sn){
+    fills=sn.docs.map(function(d){var o=d.data();o.id=d.id;return o});render();
+  },function(){}));
+  unsubs.push(f.onSnapshot(cref('meta','settings'),function(d){
+    if(d.exists()){settings=d.data();save();render()}
+  },function(){}));
+}
+async function initCloud(){
+  try{
+    var B='https://www.gstatic.com/firebasejs/10.14.1/';
+    var app=await import(B+'firebase-app.js');
+    var fs=await import(B+'firebase-firestore.js');
+    var au=await import(B+'firebase-auth.js');
+    var a=app.initializeApp(CFG);
+    var db=fs.initializeFirestore(a,{localCache:fs.persistentLocalCache({tabManager:fs.persistentMultipleTabManager()})});
+    cloud={db:db,fn:fs};
+    await au.signInAnonymously(au.getAuth(a));
+    return true;
+  }catch(e){cloudErr='אין חיבור לענן, נסה שוב כשיש קליטה';cloud=null;renderSync();return false}
+}
+function joinJournal(code,name,isNew){
+  journal={code:code,name:name};LS.set('fuel.journal',journal);
+  hide('welBg');renderSync();attach();
+  if(isNew)cloud.fn.setDoc(cref('meta','settings'),clean(settings)).catch(function(){});
+  render();
+}
+$('wCreate').onclick=function(){
+  var n=$('wName').value.trim();if(!n){$('wMsg').textContent='הזן שם';return}
+  if(!cloud){$('wMsg').textContent='אין חיבור לענן';return}
+  joinJournal(genCode(),n,true);
+};
+$('wJoin').onclick=function(){
+  var n=$('wName').value.trim(),c=$('wCode').value.trim().toLowerCase();
+  if(!n){$('wMsg').textContent='הזן שם';return}
+  if(!validCode(c)){$('wMsg').textContent='הקוד לא תקין';return}
+  if(!cloud){$('wMsg').textContent='אין חיבור לענן';return}
+  joinJournal(c,n,false);
+};
+$('shareJ').onclick=function(){
+  var url=location.href.split('#')[0]+'#j='+journal.code;
+  if(navigator.share){navigator.share({title:'מחשבון דלק',text:'הצטרף ליומן הדלק',url:url}).catch(function(){})}
+  else{try{navigator.clipboard.writeText(url);$('backupMsg').textContent='הקישור הועתק'}catch(e){$('backupMsg').textContent=url}}
+};
+$('leaveJ').onclick=function(){
+  if($('leaveJ').dataset.sure!=='1'){$('leaveJ').dataset.sure='1';$('leaveJ').textContent='לחץ שוב לאישור';return}
+  unsubs.forEach(function(u){u()});unsubs=[];journal=null;LS.del('fuel.journal');trips=[];fills=[];
+  $('leaveJ').dataset.sure='0';$('leaveJ').textContent='עזוב יומן';hide('setBg');renderSync();render();
+  show('welBg');
+};
+
+$('foot').textContent=CFG?'הנתונים מסונכרנים בין כל המצטרפים ליומן ונשמרים גם במכשיר. מומלץ לגבות מדי פעם בהגדרות.':'הנתונים נשמרים במכשיר הזה בלבד. מומלץ לגבות מדי פעם בהגדרות.';
+drawBig();render();renderSync();
+if(CFG){
+  var ok=await initCloud();
+  var m=location.hash.match(/j=([a-z0-9]+)/);
+  if(ok&&journal)attach();
+  else if(ok){
+    if(m&&validCode(m[1]))$('wCode').value=m[1];
+    show('welBg');
+  }
+  if(!ok&&!journal)show('welBg');
+}
+// service worker (offline shell)
+try{if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js')}catch(e){}
+})();
+</script>
+</body>
+</html>
